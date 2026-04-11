@@ -10,6 +10,18 @@ const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 // ============================================
+// 白名单（只有这些用户才能使用 AI 回复）
+// 从环境变量读取，多个用英文逗号分隔
+// ============================================
+const ALLOWED_USERS = (process.env.ALLOWED_USERS || '').split(',').filter(Boolean);
+
+function isAllowedUser(openId) {
+  // 如果没配置白名单，默认拒绝所有人
+  if (ALLOWED_USERS.length === 0) return false;
+  return ALLOWED_USERS.includes(openId);
+}
+
+// ============================================
 // DeepSeek API 调用
 // ============================================
 async function callDeepSeek(userMessage) {
@@ -118,6 +130,13 @@ exports.main_handler = async (event, context) => {
       const toUser = msg.ToUserName || '';
 
       if (msgType === 'text') {
+        if (!isAllowedUser(fromUser)) {
+          return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/xml' },
+            body: buildReplyXml(fromUser, toUser, '暂不支持该用户使用，请联系管理员开通。'),
+          };
+        }
         const reply = await callDeepSeek(msg.Content || '');
         return {
           statusCode: 200,
